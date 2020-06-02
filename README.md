@@ -24,6 +24,8 @@ Some ways this example might be improved:
   * Make this visualization usable for people with limited vision (not sure how friendly Processing is screenreaders! I'd be curious to find out.)
   
  * Edit:
-   * Balls eventually return to the same place (homes).
-   * Balls self isolate after certain number of days being infected (they have symptoms). Also make other balls avoid them.
-   * Some balls go to different places (jobs) during weekdays (essential workers). 
+   * Adjusted transmission rate (100% to 70%).
+   * Balls self isolate after certain number of days being infected (they have symptoms).
+   * Balls move around again once they recover.
+   * Balls have a 40% chance of being infected again after the first time.
+   * Balls have a 30% chance of dying after 1000 days of being infected.
