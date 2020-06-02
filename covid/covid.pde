@@ -19,8 +19,9 @@ ArrayList<Ball> balls =  new ArrayList<Ball>();
 // of infected people if it's changed up here). These should be connected
 // in some way.
 int infected = 1;
-int uninfected = 199;
+int uninfected = 200 - infected;
 int recovered = 0;
+int dead = 0;
 
 // cols stores the columns in the graph at the top of the screen.
 ArrayList<Column> cols = new ArrayList<Column>();
@@ -34,8 +35,11 @@ int leftCol = 110;
 // frame makes the graph outgrow the size of the window too quickly.
 int columnCounter = 0;
 
+
+
+
 void setup() {
-  size(640, 360);
+  size(600, 400);
   for (int i = 0; i < 200; i++) {
     // Adds a new Ball that starts at a random x value and a random y value that
     // avoids the graph area at the top of the screen.
@@ -47,14 +51,18 @@ void setup() {
 // TODO: Make this variable based on how many people we'd like to be infected
 // initially.
 State getIsInfected(int i) {
-  return i == 0 ? State.INFECTED : State.UNINFECTED;
+  if (i==0)
+    return State.INFECTED;
+    
+  else
+    return State.UNINFECTED;
 }
 
 // Currently, about 1 in 8 people are social distancing. The first person
 // is set to not be social distancing because it makes the simulation move faster.
 // TODO: Update this logic as necessary when getIsInfected() is updated.
 boolean getIsSocialDistancing(int i) {
-  return floor(random(0, 8)) != 0 && i != 0;
+  return floor(random(0, 8)) == 0 && i != 0;
 }
 
 void draw() {
@@ -81,7 +89,7 @@ void draw() {
   }
   
   // Check for collisions between every ball and every other ball.
-  for (int i = 0; i < balls.size(); i++) { //<>//
+  for (int i = 0; i < balls.size(); i++) {
     for (int j = i + 1; j < balls.size(); j++) {
       balls.get(i).checkCollision(balls.get(j));
     }
@@ -93,9 +101,13 @@ void drawStats() {
   fill(204);
   rect(0, 0, width, 60);
   fill(51);
-  text("healthy: " + uninfected, 10, 30);
-  text("sick: " + infected, 10, 40);
-  text("recovered: " + recovered, 10, 20);
+  text("Uninfected: " + uninfected, 10, 10);
+  
+  text("Infected: " + infected, 10, 20);
+  
+  text("Recovered: " + recovered, 10, 30);
+  
+  text("Dead: " + dead, 10, 40);
 }
 
 
@@ -103,7 +115,8 @@ void drawStats() {
 enum State {
   UNINFECTED,
   INFECTED,
-  RECOVERED
+  RECOVERED,
+  DEAD
 }
 
 
@@ -119,7 +132,6 @@ class Ball {
   float radius, m;
   State state;
   // If infected, tracks how many days a person has been infected.
-  // After 1000 days/frames, the person recovers.
   int infectedDays;
   boolean isSocialDistancing;
 
@@ -131,28 +143,54 @@ class Ball {
     if (isSocialDistancing) {
       m = 1000;
       velocity = new PVector(0, 0);
-    } else {
+    } 
+    else {
       m = radius*.1;
       velocity = PVector.random2D();
     }
+    
     this.state = state;
     infectedDays = 0;
     this.isSocialDistancing = isSocialDistancing;
   }
 
   void update() {
+    if (state == State.DEAD) 
+      velocity = new PVector(0,0);
+      
+    
     position.add(velocity);
-    if (state == State.INFECTED) {
+    if (state == State.INFECTED) 
       infectedDays++;
+    
+    // People self-isolate after they notice symptoms (200 days).
+    if( infectedDays == 200) {
+      velocity = new PVector(0,0);
+      m = 1000;
+      
     }
-    // If the person has been infected for 1000 days, they should be moved into
-    // the recovered state.
+    
+    // People recover or die after 1000 days days).
+    // Roughly 30% of people die
     if (infectedDays == 1000) {
-      state = State.RECOVERED;
-      infectedDays = 0;
-      infected--;
-      recovered++;
+      
+      int mortalityRate = floor(random(10));
+      if(mortalityRate < 3) {
+        state = state.DEAD;
+        infectedDays = 0;
+        infected--;
+        dead++;
+      }
+      
+      else{
+        state = State.RECOVERED;
+        infectedDays = 0;
+        infected--;
+        recovered++;
+        velocity = PVector.random2D();
+      }
     }
+    
   }
 
   void checkBoundaryCollision() {
@@ -171,20 +209,66 @@ class Ball {
     }
   }
   
-  // Update state of this ball and the ball with which it collided. Also update
-  // the global variables that count the number of infected people.
+  // Update states of the two balls and the variables that count number of each state.
   // (possible) TODO: Separate out the part that deals with global variables from
   // code that deals with the individual Balls specifically.
   void checkAndSetInfection(Ball other) {
     if (other.state == State.INFECTED  && this.state == State.UNINFECTED) {
-      this.state = State.INFECTED;
-      infected++;
-      uninfected--;
+      //transmission is not 100% guaranteed (70% in this case)
+      int temp = floor(random(10));
+      
+      if(temp<7){
+        this.state = State.INFECTED;
+        infected++;
+        // Prevent uninfected number from going negative after second infection.
+        if(uninfected>0)
+          uninfected--;
+      }
     }
+    
+    // A recovered person can be infected again
+     if (other.state == State.INFECTED  && this.state == State.RECOVERED) {
+       //transmission is not 100% guaranteed (40% in this case)
+      int temp = floor(random(10));
+      
+      if(temp<4) {
+        this.state = State.INFECTED;
+        infected++;
+        recovered--;
+        // Prevent uninfected number from going negative after second infection.
+        if(uninfected>0)
+          uninfected--;
+      }
+    }
+    
     if (this.state == State.INFECTED && other.state == State.UNINFECTED) {
-      other.state = State.INFECTED;
-      infected++;
-      uninfected--;
+      //transmission is not 100% guaranteed (70% in this case)
+      int temp = floor(random(10));
+      
+      if (temp<7) {
+        other.state = State.INFECTED;
+        infected++;
+        // Prevent uninfected number from going negative after second infection.
+        if(uninfected>0)
+          uninfected--;
+      }
+     
+    }
+    
+    //A recovered person can be infected again
+    if (this.state == State.INFECTED && other.state == State.RECOVERED) {
+      //transmission is not 100% guaranteed (40% in this case)
+      int temp = floor(random(10));
+      
+      if (temp<4) {
+        other.state = State.INFECTED;
+        infected++;
+        recovered--;
+        // Prevent uninfected number from going negative after second infection.
+        if(uninfected>0)
+          uninfected--;
+      }
+     
     }
   }
 
@@ -202,7 +286,7 @@ class Ball {
     if (distanceVectMag < minDistance) {
       checkAndSetInfection(other);
       
-      float distanceCorrection = (minDistance-distanceVectMag)/2.0; //<>//
+      float distanceCorrection = (minDistance-distanceVectMag)/2.0;
       PVector d = distanceVect.copy();
       PVector correctionVector = d.normalize().mult(distanceCorrection);
       other.position.add(correctionVector);
@@ -273,7 +357,7 @@ class Ball {
 
       // !!! IMPORTANT !!!
       // The following lines must be commented out–otherwise there's a clumping issue with large numbers
-       //<>//
+      
       // update balls to screen position
       // other.position.x = position.x + bFinal[1].x;
       // other.position.y = position.y + bFinal[1].y;
@@ -290,20 +374,25 @@ class Ball {
 
   void display() {
     noStroke();
-    if (state == State.INFECTED) {
-      // Infected people are drawn in red.
-      fill(252, 3, 40);
-    } else if (state == State.UNINFECTED) {
-      // Uninfected people are drawn in gray.
-      fill(204);
-    } else {
-      // Recovered people are drawn in green
-      fill(135, 224, 145);
-    }
+    
+    if (state == State.INFECTED) //Infected = red
+      fill(255, 0, 0); 
+    
+    else if (state == State.UNINFECTED) //Uninfected = grey
+      fill(160, 160, 160);
+      
+    else if (state == State.RECOVERED) //Recovered = green 
+      fill(0, 255, 0);
+      
+    else if (state == State.DEAD) //Dead = black 
+      fill(0, 0, 0);
     
     ellipse(position.x, position.y, radius*2, radius*2);
   }
-}
+  
+}//END BALL CLASS
+
+
 
 /* Column represents a column of the graph that exists above the ball simulation.
  * It calculates the sizes of the rectangles that make up a column based on the ratio
@@ -314,22 +403,26 @@ class Column {
   int top = 10;
   int totalHeight = 30;
   int numActors = balls.size();
-  int infected_, uninfected_, recovered_; //<>//
+  int infected_, uninfected_, recovered_, dead_;
   // position vars for top/recovered
   PVector position1Top, position1Bottom;
   // position vars for middle/uninfected
   PVector position2Top, position2Bottom;
   // position vars for bottom/infected
   PVector position3Top, position3Bottom;
+  // position vars for very bottom/dead
+  PVector position4Top, position4Bottom;
   
   Column () {
     this.infected_ = infected;
     this.uninfected_ = uninfected;
     this.recovered_ = recovered;
+    this.dead_ = dead;
     
     float recoveredShare = recovered_ * 1.0 / numActors * totalHeight;
     float infectedShare = infected_ * 1.0 / numActors * totalHeight;
     float uninfectedShare = uninfected_ * 1.0 / numActors * totalHeight;
+    float deadShare = dead_ * 1.0 / numActors*totalHeight;
     
     position1Top = new PVector(leftCol, top);
     position1Bottom = new PVector(leftCol + colWidth, top + recoveredShare);
@@ -337,19 +430,24 @@ class Column {
     position2Bottom = new PVector(leftCol + colWidth, top + recoveredShare + uninfectedShare);
     position3Top = new PVector(leftCol, top + recoveredShare + uninfectedShare);
     position3Bottom = new PVector(leftCol + colWidth, top + recoveredShare + infectedShare + uninfectedShare);
+    position4Top = new PVector(leftCol, top + recoveredShare + infectedShare + uninfectedShare + deadShare);
+    position4Bottom = new PVector(leftCol + colWidth, top + recoveredShare + infectedShare + uninfectedShare + deadShare);
   }
   
   void display() {
     noStroke();
     rectMode(CORNERS);
     // Draw recovered rectangle.
-    fill(135, 224, 145);
+    fill(0, 255, 0);
     rect(position1Top.x, position1Top.y, position1Bottom.x, position1Bottom.y);
     // Draw uninfected rectangle.
-    fill(180);
-    rect(position2Top.x, position2Top.y, position2Bottom.x, position2Bottom.y); //<>//
+    fill(160,160,160);
+    rect(position2Top.x, position2Top.y, position2Bottom.x, position2Bottom.y);
     // Draw infected rectangle.
-    fill(252, 3, 40);
+    fill(255, 0, 0);
     rect(position3Top.x, position3Top.y, position3Bottom.x, position3Bottom.y);
+    // Draw dead rectangle.
+    fill(0, 0, 0);
+    rect(position4Top.x, position4Top.y, position4Bottom.x, position4Bottom.y);
   }
 }
